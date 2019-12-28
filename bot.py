@@ -1,43 +1,56 @@
 import requests  
-from bottle import (  
-    run, post, response, request as bottle_request
-)
-BOT_URL = 'https://api.telegram.org/bot907838332:AAH8NkqNSoU3zTDvzWWgpXjvzGSQdHeGkEA/' 
-def get_chat_id(data):  
-    """
-    Method to extract chat id from telegram request.
-    """
-    chat_id = data['message']['chat']['id']
-    return chat_id
-def get_message(data):  
-    """
-    Method to extract message id from telegram request.
-    """
-    message_text = data['message']['text']
-    return message_text
-def send_message(prepared_data):  
-    """
-    Prepared data should be json which includes at least `chat_id` and `text`
-    """ 
-    message_url = BOT_URL + 'sendMessage'
-    requests.post(message_url, json=prepared_data)  # don't forget to make import requests lib
-def change_text_message(text):  
-    """
-    To enable turning our message inside out
-    """
-    return text[::-1]
-def prepare_data_for_answer(data):  
-    answer = change_text_message(get_message(data))
-    json_data = {
-        "chat_id": get_chat_id(data),
-        "text": answer,
-    }
-    return json_data
-@post('/')
-def main():  
-    data = bottle_request.json
-    answer_data = prepare_data_for_answer(data)
-    send_message(answer_data)  # <--- function for sending answer
-    return response  # status 200 OK by default
+from bottle import Bottle, response, request as bottle_request
+from Config import token
+
+class BotHandlerMixin:  
+    BOT_URL = None
+    
+    #Extracts chat id from telegram request
+    def get_chat_id(self, data):
+        chat_id = data['message']['chat']['id']
+        return chat_id
+    
+    #Extracts message id from telegram request
+    def get_message(self, data):
+        message_text = data['message']['text']
+        return message_text
+    
+    #Prepared data: 'chat_id' and 'text' in json
+    def send_message(self, prepared_data):     
+        message_url = self.BOT_URL + 'sendMessage'
+        requests.post(message_url, json=prepared_data)
+        
+class TelegramBot(BotHandlerMixin, Bottle):
+    
+    BOT_URL = "https://api.telegram.org/bot{0}/".format(token)
+    
+    def __init__(self, *args, **kwargs):
+        super(TelegramBot, self).__init__()
+        self.route('/', callback=self.post_handler, method="POST")
+        
+    #Reverses the string passed to method as parameter
+    def change_text_message(self, text):
+        return text[::-1]
+    
+    def prepare_data_for_answer(self, data):
+        message = self.get_message(data)
+        answer = self.change_text_message(message)
+        chat_id = self.get_chat_id(data)
+        json_data = {
+            "chat_id": chat_id,
+            "text": answer,
+        }
+        return json_data
+    
+    def post_handler(self):
+        data = bottle_request.json
+        answer_data = self.prepare_data_for_answer(data)
+        self.send_message(answer_data)
+        return response
+    
+#Executed only when the code runs directly    
 if __name__ == '__main__':  
-    run(host='localhost', port=8080, debug=True)
+    app = TelegramBot()
+    app.run(host='localhost', port=8080)
+
+    
