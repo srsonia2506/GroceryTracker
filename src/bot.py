@@ -1,6 +1,6 @@
 import requests  
 from bottle import Bottle, response, request as bottle_request
-from Config import token
+from os
 
 class BotHandlerMixin:  
     BOT_URL = None
@@ -21,6 +21,7 @@ class BotHandlerMixin:
         requests.post(message_url, json=prepared_data)
         
 class TelegramBot(BotHandlerMixin, Bottle):
+    token=os.environ.get('TelegramBotToken')
     
     BOT_URL = "https://api.telegram.org/bot{0}/".format(token)
     
